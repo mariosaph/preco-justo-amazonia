@@ -115,6 +115,8 @@ button { font-family: inherit; font-size: inherit; cursor: pointer; }
 .botao-google svg { background: #fff; border-radius: 50%; padding: 2px; }
 
 .login-erro { color: var(--erro); font-size: 0.95rem; margin-top: 14px; }
+.login-cartao .botao.terciario { margin-top: 16px; }
+.login-aviso { color: var(--tinta-suave); font-size: 0.82rem; margin: 2px 0 0; }
 
 .login-passos {
   list-style: none; margin: 28px 0 0; padding: 18px 0 0;

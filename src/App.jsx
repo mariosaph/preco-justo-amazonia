@@ -7,6 +7,7 @@ import { estadoInicial } from './calc.js';
 
 export default function App() {
   const [usuario, setUsuario] = useState(undefined); // undefined = carregando
+  const [convidado, setConvidado] = useState(false);
   const [aba, setAba] = useState('calculadora');
   const [estadoCarregado, setEstadoCarregado] = useState(null);
 
@@ -26,7 +27,7 @@ export default function App() {
     );
   }
 
-  if (!usuario) return <Login />;
+  if (!usuario && !convidado) return <Login aoExperimentar={() => setConvidado(true)} />;
 
   return (
     <div className="app">
@@ -62,13 +63,19 @@ export default function App() {
           </button>
         </nav>
 
-        <div className="usuario">
-          {usuario.photoURL && <img src={usuario.photoURL} alt="" referrerPolicy="no-referrer" />}
-          <div className="usuario-info">
-            <span title={usuario.email}>{(usuario.displayName || usuario.email || '').split(' ')[0]}</span>
-            <button className="link-sair" onClick={sair}>sair</button>
+        {usuario ? (
+          <div className="usuario">
+            {usuario.photoURL && <img src={usuario.photoURL} alt="" referrerPolicy="no-referrer" />}
+            <div className="usuario-info">
+              <span title={usuario.email}>{(usuario.displayName || usuario.email || '').split(' ')[0]}</span>
+              <button className="link-sair" onClick={sair}>sair</button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <button className="botao secundario mini-botao" onClick={() => setConvidado(false)}>
+            Entrar
+          </button>
+        )}
       </header>
 
       <main className="conteudo">
@@ -78,8 +85,14 @@ export default function App() {
             estadoExterno={estadoCarregado}
             aoConsumirEstadoExterno={() => setEstadoCarregado(null)}
           />
-        ) : (
+        ) : usuario ? (
           <Historico usuario={usuario} aoReabrir={reabrirCalculo} />
+        ) : (
+          <div className="painel vazio-historico">
+            <h2>Histórico é só para quem entra</h2>
+            <p>Entre com sua conta Google para guardar cada cálculo e acompanhar seus preços ao longo do tempo.</p>
+            <button className="botao primario" onClick={() => setConvidado(false)}>Entrar com Google</button>
+          </div>
         )}
       </main>
 

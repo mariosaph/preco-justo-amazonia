@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { entrarComGoogle } from '../firebase.js';
 
-export default function Login() {
+export default function Login({ aoExperimentar }) {
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
 
@@ -57,6 +57,11 @@ export default function Login() {
         </button>
 
         {erro && <p className="login-erro" role="alert">{erro}</p>}
+
+        <button className="botao terciario" onClick={aoExperimentar}>
+          Experimentar sem entrar →
+        </button>
+        <p className="login-aviso">Sem login dá para calcular, mas o histórico não fica salvo.</p>
 
         <ul className="login-passos">
           <li><b>1.</b> Diga o que vai vender</li>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { moeda, blocosPara, TIPOS_REFERENCIA } from '../calc.js';
-import { salvarCalculo } from '../firebase.js';
+import { salvarCalculo, entrarComGoogle } from '../firebase.js';
 
 function PrecoAnimado({ valor }) {
   const [exibido, setExibido] = useState(0);
@@ -136,9 +136,13 @@ export default function Resultado({ estado, resultado, usuario, aoNovoCalculo, a
       <div className="acoes no-print">
         {salvoId ? (
           <div className="alerta sucesso" role="status">✓ Cálculo salvo no seu histórico.</div>
-        ) : (
+        ) : usuario ? (
           <button className="botao primario" onClick={salvar} disabled={salvando || semCustos}>
             {salvando ? 'Salvando…' : 'Salvar no histórico'}
+          </button>
+        ) : (
+          <button className="botao primario" onClick={() => entrarComGoogle().catch(console.error)}>
+            Entrar com Google para salvar
           </button>
         )}
         <button className="botao secundario" onClick={() => window.print()}>
