@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { moeda, blocosPara, TIPOS_REFERENCIA } from '../calc.js';
+import { moeda, pct, blocosPara, TIPOS_REFERENCIA } from '../calc.js';
 import { salvarCalculo, entrarComGoogle } from '../firebase.js';
 
 function PrecoAnimado({ valor }) {
@@ -24,7 +24,7 @@ function PrecoAnimado({ valor }) {
 
 const rotuloRef = (id) => TIPOS_REFERENCIA.find((t) => t.id === id)?.rotulo || id;
 
-export default function Resultado({ estado, resultado, usuario, aoNovoCalculo, aoEditar }) {
+export default function Resultado({ estado, resultado, usuario, mudar, aoNovoCalculo, aoEditar }) {
   const [salvando, setSalvando] = useState(false);
   const [salvoId, setSalvoId] = useState(null);
   const [erro, setErro] = useState('');
@@ -90,26 +90,92 @@ export default function Resultado({ estado, resultado, usuario, aoNovoCalculo, a
         ))}
       </div>
 
+      {r.alertaFixos && (
+        <div className="alerta atencao" role="alert">
+          ⚠ Os custos fixos são <b>{pct(r.fixosPct)}</b> do preço — acima do limite recomendado
+          de <b>30%</b>. Procure ratear esses custos entre mais produtos ou lotes maiores, ou
+          revisar o que entrou como fixo.
+        </div>
+      )}
+
       <details className="composicao" open>
         <summary>Como esse preço foi montado (composição)</summary>
         <table>
+          <thead>
+            <tr><th>Item</th><th>Valor</th><th>% do preço</th></tr>
+          </thead>
           <tbody>
             {blocos.map((b) =>
               r.porBloco[b.id] > 0 ? (
-                <tr key={b.id}><td>{b.titulo}</td><td>{moeda(r.porBloco[b.id])}</td></tr>
+                <tr key={b.id} className={b.id === 'fixos' && r.alertaFixos ? 'linha-alerta' : undefined}>
+                  <td>{b.titulo}</td>
+                  <td>{moeda(r.porBloco[b.id])}</td>
+                  <td>{r.custoTotal > 0 ? pct(r.porBloco[b.id] / r.custoTotal) : '—'}</td>
+                </tr>
               ) : null
             )}
-            {r.perdas > 0 && <tr><td>Perdas</td><td>{moeda(r.perdas)}</td></tr>}
-            <tr className="sub"><td>Subtotal</td><td>{moeda(r.subtotal)}</td></tr>
-            {r.fundo > 0 && <tr><td>Fundo comunitário</td><td>{moeda(r.fundo)}</td></tr>}
-            {r.reinvest > 0 && <tr><td>Margem de reinvestimento</td><td>{moeda(r.reinvest)}</td></tr>}
-            <tr className="total"><td>Custo total do lote</td><td>{moeda(r.custoTotal)}</td></tr>
+            {r.perdas > 0 && (
+              <tr><td>Perdas</td><td>{moeda(r.perdas)}</td><td>{r.custoTotal > 0 ? pct(r.perdas / r.custoTotal) : '—'}</td></tr>
+            )}
+            <tr className="sub"><td>Subtotal</td><td>{moeda(r.subtotal)}</td><td>{r.custoTotal > 0 ? pct(r.subtotal / r.custoTotal) : '—'}</td></tr>
+            {r.fundo > 0 && (
+              <tr><td>Fundo comunitário</td><td>{moeda(r.fundo)}</td><td>{r.custoTotal > 0 ? pct(r.fundo / r.custoTotal) : '—'}</td></tr>
+            )}
+            {r.reinvest > 0 && (
+              <tr><td>Margem de reinvestimento</td><td>{moeda(r.reinvest)}</td><td>{r.custoTotal > 0 ? pct(r.reinvest / r.custoTotal) : '—'}</td></tr>
+            )}
+            <tr className="total"><td>Custo total do lote</td><td>{moeda(r.custoTotal)}</td><td>100%</td></tr>
             {estado.tipo === 'produto' && (
-              <tr><td>Quantidade vendável</td><td>{r.quantidade} {unidade}</td></tr>
+              <tr><td>Quantidade vendável</td><td>{r.quantidade} {unidade}</td><td></td></tr>
             )}
           </tbody>
         </table>
       </details>
+
+      <div className="margem-cartao">
+        <h3>Margem de contribuição</h3>
+        <p>
+          Por quanto você pretende anunciar {estado.tipo === 'servico' ? 'o serviço' : `cada ${unidade}`}?
+          A margem de contribuição mostra quanto sobra de cada venda, depois de pagar os custos
+          variáveis, para cobrir os custos fixos e o coletivo.
+        </p>
+        <label className="campo campo-destaque">
+          <span>Preço de venda anunciado</span>
+          <div className="moeda-input grande">
+            <span aria-hidden="true">R$</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={estado.precoVenda || ''}
+              placeholder={moeda(r.precoSustentavel).replace('R$', '').trim()}
+              onChange={(e) => mudar('precoVenda', e.target.value)}
+            />
+          </div>
+          <small>Custo variável por {unidade}: {moeda(r.custoVariavelUnit)} · Custos fixos do lote: {moeda(r.fixosTotal)}</small>
+        </label>
+
+        {r.margem && (
+          <div className="margem-resultado">
+            <div className="margem-kpis">
+              <div className={r.margem.mc > 0 ? 'margem-kpi positiva' : 'margem-kpi negativa'}>
+                <strong>{moeda(r.margem.mc)}</strong>
+                <small>de sobra em cada {unidade}</small>
+              </div>
+              <div className={r.margem.mc > 0 ? 'margem-kpi positiva' : 'margem-kpi negativa'}>
+                <strong>{pct(r.margem.mcPct)}</strong>
+                <small>do preço de venda</small>
+              </div>
+              {r.margem.unidadesParaFixos && estado.tipo === 'produto' && (
+                <div className="margem-kpi">
+                  <strong>{r.margem.unidadesParaFixos}</strong>
+                  <small>{unidade} para cobrir os custos fixos</small>
+                </div>
+              )}
+            </div>
+            <p className="margem-leitura">{r.margem.leitura}</p>
+          </div>
+        )}
+      </div>
 
       {r.referencias.length > 0 && (
         <div className="comparacoes">

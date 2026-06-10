@@ -61,6 +61,44 @@ function aprox(a, b, msg) {
   aprox(r.precoSustentavel, 300, 'preço sustentável guiamento');
 }
 
+// --- Margem de contribuição e alerta de custos fixos ---
+{
+  const e = estadoInicial('produto');
+  e.item.nome = 'Farinha de mandioca';
+  e.item.quantidadeVendavel = '100';
+  e.custos.insumos = [{ desc: 'insumos', valor: '120' }];
+  e.custos.trabalho = [{ desc: 'trabalho', pessoas: '1', tempo: '1', unidadeTempo: 'diaria', valorUnit: '300' }];
+  e.custos.logistica = [{ desc: 'transporte', valor: '150' }];
+  e.custos.beneficiamento = [{ desc: 'beneficiamento', valor: '100' }];
+  e.custos.embalagem = [{ desc: 'embalagem', valor: '80' }];
+  e.custos.fixos = [{ desc: 'fixos rateados', valor: '40' }];
+  e.perda = { modo: 'valor', pct: '', valor: '50' };
+  e.precoVenda = '10,00';
+
+  const r = calcular(e);
+  // custos variáveis = subtotal (840) − fixos (40) = 800 → R$ 8,00/kg
+  aprox(r.custoVariavelUnit, 8.0, 'custo variável unitário');
+  aprox(r.margem.mc, 2.0, 'margem de contribuição unitária (PV 10,00)');
+  aprox(r.margem.mcPct, 0.2, 'margem de contribuição % (20%)');
+  assert.equal(r.margem.unidadesParaFixos, 20, '20 kg cobrem os R$ 40 de fixos');
+  aprox(r.fixosPct, 40 / 966, 'participação dos fixos no preço');
+  assert.equal(r.alertaFixos, false, 'fixos de 4,1% não disparam alerta');
+
+  // composição soma 100%: subtotal + fundo + reinvest = custoTotal
+  aprox(r.subtotal + r.fundo + r.reinvest, r.custoTotal, 'composição fecha em 100%');
+
+  // preço de venda abaixo do custo variável → margem negativa
+  e.precoVenda = '7';
+  const r2 = calcular(e);
+  assert.ok(r2.margem.mc < 0, 'PV 7,00 gera margem negativa');
+
+  // custos fixos estourados (> 30% do total) → alerta
+  e.custos.fixos = [{ desc: 'fixos pesados', valor: '600' }];
+  const r3 = calcular(e);
+  assert.ok(r3.fixosPct > 0.3, 'fixos altos passam de 30%');
+  assert.equal(r3.alertaFixos, true, 'alerta de custo fixo dispara');
+}
+
 // --- parser de números pt-BR ---
 {
   const { parseNum } = await import('../src/calc.js');

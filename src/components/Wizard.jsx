@@ -130,6 +130,7 @@ export default function Wizard({ usuario, estadoExterno, aoConsumirEstadoExterno
             estado={estado}
             resultado={resultado}
             usuario={usuario}
+            mudar={mudar}
             aoNovoCalculo={novoCalculo}
             aoEditar={() => setPassoIdx(0)}
           />
@@ -412,45 +413,68 @@ function EtapaCustos({ estado, setEstado, resultado }) {
 
 function EtapaPerdas({ estado, mudar, resultado }) {
   const modo = estado.perda.modo;
+  const subtotalBase = resultado.basicos + resultado.trabalho + resultado.logistica;
+  const pctEquivalente = subtotalBase > 0 ? (resultado.perdas / subtotalBase) * 100 : 0;
+
   return (
     <>
       <h2 className="etapa-titulo">Perdas no caminho</h2>
       <p className="etapa-explica">
         Na Amazônia sempre se perde um pouco: fruta que estraga, peixe que não chega, umidade,
-        quebra no transporte. Quem não cobra as perdas, paga por elas.
+        quebra no transporte. Quem não cobra as perdas, paga por elas. Escolha o jeito mais fácil
+        de informar a sua perda:
       </p>
 
-      <div className="seletor-modo" role="radiogroup" aria-label="Como informar as perdas">
-        <button type="button" role="radio" aria-checked={modo === 'pct'}
-          className={modo === 'pct' ? 'modo ativo' : 'modo'}
-          onClick={() => mudar('perda.modo', 'pct')}>
-          Em % do custo
+      <div className="perda-modos" role="radiogroup" aria-label="Como informar as perdas">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={modo === 'pct'}
+          className={modo === 'pct' ? 'perda-cartao ativo' : 'perda-cartao'}
+          onClick={() => mudar('perda.modo', 'pct')}
+        >
+          <span className="perda-check" aria-hidden="true">{modo === 'pct' ? '●' : '○'}</span>
+          <span className="perda-simbolo" aria-hidden="true">%</span>
+          <strong>Em porcentagem</strong>
+          <small>Você estima quanto do total se perde. Ex.: de cada 10 caixas, 1 estraga = 10%.</small>
         </button>
-        <button type="button" role="radio" aria-checked={modo === 'valor'}
-          className={modo === 'valor' ? 'modo ativo' : 'modo'}
-          onClick={() => mudar('perda.modo', 'valor')}>
-          Em reais (R$)
+        <button
+          type="button"
+          role="radio"
+          aria-checked={modo === 'valor'}
+          className={modo === 'valor' ? 'perda-cartao ativo' : 'perda-cartao'}
+          onClick={() => mudar('perda.modo', 'valor')}
+        >
+          <span className="perda-check" aria-hidden="true">{modo === 'valor' ? '●' : '○'}</span>
+          <span className="perda-simbolo" aria-hidden="true">R$</span>
+          <strong>Em dinheiro</strong>
+          <small>Você sabe quanto perdeu neste lote, em reais. Ex.: R$ 50 de produto estragado.</small>
         </button>
       </div>
 
       {modo === 'pct' ? (
         <label className="campo campo-destaque">
-          <span>Quanto se perde, em média?</span>
+          <span>Quantos por cento se perde, em média?</span>
           <div className="sufixo-input">
             <input type="text" inputMode="decimal" value={estado.perda.pct}
               onChange={(e) => mudar('perda.pct', e.target.value)} placeholder="Ex.: 10" />
             <span aria-hidden="true">%</span>
           </div>
-          <small>Por exemplo: de cada 10 caixas, 1 se perde = 10%.</small>
+          {resultado.perdas > 0 && (
+            <small>Neste lote, isso significa <b>{moeda(resultado.perdas)}</b> de perdas.</small>
+          )}
         </label>
       ) : (
         <label className="campo campo-destaque">
-          <span>Valor das perdas neste lote</span>
+          <span>Quanto se perdeu neste lote, em reais?</span>
           <div className="moeda-input grande">
             <span aria-hidden="true">R$</span>
             <input type="text" inputMode="decimal" value={estado.perda.valor}
               onChange={(e) => mudar('perda.valor', e.target.value)} placeholder="0,00" />
           </div>
+          {resultado.perdas > 0 && subtotalBase > 0 && (
+            <small>Equivale a <b>{pctEquivalente.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</b> dos custos deste lote.</small>
+          )}
         </label>
       )}
 

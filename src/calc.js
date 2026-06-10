@@ -52,6 +52,7 @@ export function estadoInicial(tipo = 'produto') {
     fundoPct: '5',
     reinvestPct: '10',
     referencias: [],
+    precoVenda: '',
   };
 }
 
@@ -111,6 +112,34 @@ export function calcular(estado) {
   const precoJusto = (subtotal + fundo) / qtd;
   const precoSustentavel = custoTotal / qtd;
 
+  // Custos fixos (bloco "fixos": fixos rateados / equipamentos e manutenção).
+  // Recomendação: não passar de 30% do preço final.
+  const fixosTotal = porBloco.fixos || 0;
+  const fixosPct = custoTotal > 0 ? fixosTotal / custoTotal : 0;
+  const alertaFixos = fixosPct > 0.3;
+
+  // Margem de contribuição sobre o preço de venda anunciado.
+  // Custos variáveis = tudo que varia com a produção (inclui perdas); exclui o bloco fixo.
+  const custoVariavelUnit = (subtotal - fixosTotal) / qtd;
+  const pv = parseNum(estado.precoVenda);
+  let margem = null;
+  if (pv > 0) {
+    const mc = pv - custoVariavelUnit;
+    const mcPct = mc / pv;
+    const unidadesParaFixos = mc > 0 && fixosTotal > 0 ? Math.ceil(fixosTotal / mc) : null;
+    let leitura;
+    if (mc <= 0) {
+      leitura = 'Esse preço não cobre nem os custos variáveis: cada venda aumenta o prejuízo.';
+    } else if (pv < precoJusto) {
+      leitura = 'Sobra um pouco de cada venda, mas o preço ainda fica abaixo do justo — o trabalho ou o coletivo ficam descobertos.';
+    } else if (pv < precoSustentavel) {
+      leitura = 'Boa margem, próxima do preço justo — mas sem folga para reinvestir na atividade.';
+    } else {
+      leitura = 'Margem saudável: cobre os variáveis, ajuda a pagar os fixos e sustenta o fundo e o reinvestimento.';
+    }
+    margem = { pv, mc, mcPct, unidadesParaFixos, leitura };
+  }
+
   const referencias = (estado.referencias || [])
     .filter((r) => parseNum(r.valor) > 0)
     .map((r) => {
@@ -151,6 +180,11 @@ export function calcular(estado) {
     precoJusto,
     precoSustentavel,
     referencias,
+    fixosTotal,
+    fixosPct,
+    alertaFixos,
+    custoVariavelUnit,
+    margem,
   };
 }
 
@@ -158,6 +192,13 @@ const fmtBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BR
 
 export function moeda(n) {
   return fmtBRL.format(isFinite(n) ? n : 0);
+}
+
+const fmtPct = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
+
+// pct(0.124) → "12,4%"
+export function pct(n) {
+  return `${fmtPct.format((isFinite(n) ? n : 0) * 100)}%`;
 }
 
 export const TIPOS_REFERENCIA = [
