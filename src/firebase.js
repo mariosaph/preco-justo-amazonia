@@ -68,6 +68,44 @@ function colecaoCalculos(uid) {
   return collection(db, 'usuarios', uid, 'calculos');
 }
 
+// Planilha viva ligada à plataforma (Apps Script Web App vinculado à Google
+// Sheets de respostas). Vazio = desligado; preencher com a URL /exec depois de
+// publicar apps-script/Code.gs. POST text/plain para evitar preflight CORS.
+const SHEET_ENDPOINT = '';
+
+function espelharNaPlanilha(uid, dados, resultado) {
+  if (!SHEET_ENDPOINT) return;
+  try {
+    const u = auth.currentUser || {};
+    const payload = {
+      uid,
+      nome: u.displayName || '',
+      email: u.email || '',
+      item: dados.item.nome || (dados.tipo === 'servico' ? 'Serviço sem nome' : 'Produto sem nome'),
+      tipo: dados.tipo,
+      unidade: dados.item.unidade || '',
+      quantidade: resultado.quantidade,
+      precoCusto: resultado.precoCusto,
+      precoMinimo: resultado.precoMinimo,
+      precoJusto: resultado.precoJusto,
+      precoSustentavel: resultado.precoSustentavel,
+      custoTotal: resultado.custoTotal,
+      comunidade: dados.comunidade.nome || '',
+      municipio: dados.comunidade.municipio || '',
+      estado: dados.comunidade.estado || '',
+      precoAtual: (dados.precoAtual != null ? dados.precoAtual : ''),
+    };
+    // fire-and-forget: nunca bloqueia nem quebra o salvamento no Firestore
+    fetch(SHEET_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+  } catch (e) {
+    /* espelho é best-effort */
+  }
+}
+
 export async function salvarCalculo(uid, dados, resultado) {
   const ref = await addDoc(colecaoCalculos(uid), {
     criadoEm: serverTimestamp(),
@@ -85,6 +123,7 @@ export async function salvarCalculo(uid, dados, resultado) {
       quantidade: resultado.quantidade,
     },
   });
+  espelharNaPlanilha(uid, dados, resultado);
   return ref.id;
 }
 
