@@ -10,11 +10,24 @@ import {
   totalLinhaTrabalho,
   parseNum,
   TIPOS_REFERENCIA,
+  UNIDADES_SERVICO,
 } from '../calc.js';
 import Resultado from './Resultado.jsx';
 
 const ESTADOS_BR = ['AC', 'AM', 'AP', 'MA', 'MT', 'PA', 'RO', 'RR', 'TO', 'outro'];
 const RASCUNHO_KEY = 'preco-justo:rascunho';
+
+// Rótulos da unidade de serviço: "3 diárias", "o preço de uma visita".
+function unidadeServicoLivre(u) {
+  return Boolean(u) && !UNIDADES_SERVICO.some((x) => x.id === u);
+}
+function plural(u) {
+  return UNIDADES_SERVICO.find((x) => x.id === u)?.plural || 'entregas';
+}
+// "um dia", "uma visita" — com o artigo certo, para a frase sair natural.
+function singular(u) {
+  return UNIDADES_SERVICO.find((x) => x.id === u)?.singular || 'uma entrega';
+}
 
 function passosPara(tipo) {
   const passos = [
@@ -197,15 +210,41 @@ function EtapaItem({ estado, mudar, trocarTipo }) {
           />
         </label>
 
-        <label className="campo">
-          <span>{ehProduto ? 'Unidade de venda' : 'Unidade de cobrança'}</span>
-          <input
-            type="text"
-            value={estado.item.unidade}
-            onChange={(e) => mudar('item.unidade', e.target.value)}
-            placeholder={ehProduto ? 'kg, litro, saca, peça…' : 'por dia, por pessoa, por grupo…'}
-          />
-        </label>
+        {ehProduto ? (
+          <label className="campo">
+            <span>Unidade de venda</span>
+            <input
+              type="text"
+              value={estado.item.unidade}
+              onChange={(e) => mudar('item.unidade', e.target.value)}
+              placeholder="kg, litro, saca, peça…"
+            />
+          </label>
+        ) : (
+          <div className="campo campo-largo">
+            <span>Você cobra por…</span>
+            <div className="chips">
+              {UNIDADES_SERVICO.map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  className={estado.item.unidade === u.id ? 'chip ativo' : 'chip'}
+                  onClick={() => mudar('item.unidade', u.id)}
+                >
+                  {u.rotulo}
+                </button>
+              ))}
+              <input
+                className="chip-input"
+                type="text"
+                value={unidadeServicoLivre(estado.item.unidade) ? estado.item.unidade : ''}
+                onChange={(e) => mudar('item.unidade', e.target.value)}
+                placeholder="outro…"
+                aria-label="Outra forma de cobrar"
+              />
+            </div>
+          </div>
+        )}
 
         {ehProduto ? (
           <label className="campo">
@@ -220,16 +259,48 @@ function EtapaItem({ estado, mudar, trocarTipo }) {
             <small>Quantidade que sobra para vender, já tirando o consumo da família.</small>
           </label>
         ) : (
-          <label className="campo">
-            <span>Pessoas envolvidas</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={estado.item.pessoas}
-              onChange={(e) => mudar('item.pessoas', e.target.value)}
-              placeholder="Ex.: 2"
-            />
-          </label>
+          <>
+            <label className="campo">
+              <span>Quantas {plural(estado.item.unidade)} neste orçamento?</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={estado.item.quantidadeVendavel}
+                onChange={(e) => mudar('item.quantidadeVendavel', e.target.value)}
+                placeholder="Ex.: 1"
+              />
+              <small>
+                Se deixar vazio, calculamos o preço de {singular(estado.item.unidade)}. Some os
+                custos de todas as {plural(estado.item.unidade)} nos próximos passos.
+              </small>
+            </label>
+
+            <label className="campo">
+              <span>Pessoas envolvidas</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={estado.item.pessoas}
+                onChange={(e) => mudar('item.pessoas', e.target.value)}
+                placeholder="Ex.: 2"
+              />
+            </label>
+
+            <label className="campo">
+              <span>Quanto você cobra hoje? <small>(opcional)</small></span>
+              <div className="sufixo-input">
+                <span aria-hidden="true">R$</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={estado.precoVenda}
+                  onChange={(e) => mudar('precoVenda', e.target.value)}
+                  placeholder="Ex.: 300"
+                />
+              </div>
+              <small>Preço de {singular(estado.item.unidade)}. Comparamos com o preço justo no final.</small>
+            </label>
+          </>
         )}
       </div>
 
@@ -536,6 +607,37 @@ function EtapaColetivo({ estado, mudar, resultado }) {
           </div>
         </div>
         <small>= {moeda(resultado.reinvest)}</small>
+      </div>
+
+      <div className="cartao-coletivo">
+        <h3>Imposto sobre a venda <small>(opcional)</small></h3>
+        <p>
+          {estado.tipo === 'servico'
+            ? 'Se a associação ou a pessoa emite nota do serviço, entra o ISS do município (em geral entre 2% e 5%).'
+            : 'Se há imposto na venda deste produto, informe aqui. Muitos produtos da agricultura familiar são isentos — na dúvida, deixe zero.'}
+        </p>
+        <div className="chips">
+          {['0', '2', '3', '5'].map((p) => (
+            <button key={p} type="button"
+              className={estado.impostoPct === p ? 'chip ativo' : 'chip'}
+              onClick={() => mudar('impostoPct', p)}>
+              {p}%
+            </button>
+          ))}
+          <div className="sufixo-input chip-input">
+            <input type="text" inputMode="decimal" value={estado.impostoPct || ''}
+              onChange={(e) => mudar('impostoPct', e.target.value)} aria-label="Percentual de imposto" />
+            <span aria-hidden="true">%</span>
+          </div>
+        </div>
+        <small>= {moeda(resultado.imposto)}</small>
+        {resultado.aliquota > 0 && (
+          <p className="nota-imposto">
+            O imposto incide sobre o valor da venda, então ele entra <strong>por dentro</strong> do
+            preço: acrescentar só a porcentagem em cima do custo deixaria você no prejuízo, porque o
+            imposto recai também sobre esse acréscimo.
+          </p>
+        )}
       </div>
     </>
   );

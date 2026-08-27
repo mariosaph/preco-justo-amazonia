@@ -381,6 +381,18 @@ input:focus, select:focus {
 .chip.ativo { background: var(--terracota); border-color: var(--terracota); color: #fff; }
 .chip-input { max-width: 110px; border-radius: 999px; }
 .chip-input input { min-height: 38px; padding: 6px 4px 6px 14px; }
+/* campo livre "outro…" ao lado dos chips (unidade do serviço) */
+input.chip-input {
+  min-height: 40px; padding: 6px 16px; max-width: 130px;
+  border: 1.5px dashed rgba(28, 42, 33, 0.35); background: #fff;
+}
+
+/* explicação do imposto "por dentro" do preço */
+.nota-imposto {
+  margin-top: 10px; padding: 10px 14px; border-radius: 12px;
+  background: rgba(28, 42, 33, 0.05); border-left: 3px solid var(--terracota);
+  font-size: 0.95rem; line-height: 1.45; color: var(--tinta-suave);
+}
 
 .vazio-refs { color: var(--tinta-suave); padding: 14px 0; }
 

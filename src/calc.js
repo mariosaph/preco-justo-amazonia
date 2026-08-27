@@ -30,6 +30,15 @@ export function blocosPara(tipo) {
   return tipo === 'servico' ? BLOCOS_SERVICO : BLOCOS_PRODUTO;
 }
 
+// Formas de cobrar um serviço, em linguagem de oficina. O usuário escolhe uma
+// (ou escreve a dele) em vez de encarar um campo de texto vazio.
+export const UNIDADES_SERVICO = [
+  { id: 'dia', rotulo: 'por dia', plural: 'diárias', singular: 'um dia' },
+  { id: 'pessoa', rotulo: 'por pessoa', plural: 'pessoas', singular: 'uma pessoa' },
+  { id: 'grupo', rotulo: 'por grupo', plural: 'grupos', singular: 'um grupo' },
+  { id: 'visita', rotulo: 'por visita', plural: 'visitas', singular: 'uma visita' },
+];
+
 export function novaLinhaCusto() {
   return { desc: '', valor: '' };
 }
@@ -45,12 +54,13 @@ export function estadoInicial(tipo = 'produto') {
   }
   return {
     tipo,
-    item: { nome: '', categoria: '', unidade: tipo === 'servico' ? 'serviço' : 'kg', quantidadeVendavel: '', duracao: '', pessoas: '' },
+    item: { nome: '', categoria: '', unidade: tipo === 'servico' ? 'dia' : 'kg', quantidadeVendavel: '', duracao: '', pessoas: '' },
     comunidade: { nome: '', municipio: '', estado: 'AM', associacao: '' },
     custos,
     perda: { modo: 'pct', pct: '', valor: '' },
     fundoPct: '5',
     reinvestPct: '10',
+    impostoPct: '',
     referencias: [],
     precoVenda: '',
   };
@@ -104,18 +114,30 @@ export function calcular(estado) {
   const reinvest = subtotal * (parseNum(estado.reinvestPct) / 100);
   const custoTotal = subtotal + fundo + reinvest;
 
-  const qtdBruta = estado.tipo === 'servico' ? 1 : parseNum(estado.item.quantidadeVendavel);
+  // Quantidade vale para produto E serviço (ex.: 3 diárias de guiamento no mesmo
+  // orçamento). Vazio ou zero = 1, que é o comportamento antigo do serviço.
+  const qtdBruta = parseNum(estado.item.quantidadeVendavel);
   const qtd = qtdBruta > 0 ? qtdBruta : 1;
 
-  const precoCusto = basicos / qtd;
-  const precoMinimo = (basicos + trabalho) / qtd;
-  const precoJusto = (subtotal + fundo) / qtd;
-  const precoSustentavel = custoTotal / qtd;
+  // Imposto sobre a venda (ISS no serviço, quando houver). Incide sobre o valor
+  // vendido, não sobre o custo — por isso entra "por dentro" do preço:
+  // preço = custo / (1 - alíquota). Cobrar custo × (1 + alíquota) deixaria a
+  // pessoa no prejuízo, porque o imposto recai também sobre o acréscimo.
+  const aliquota = Math.min(Math.max(parseNum(estado.impostoPct) / 100, 0), 0.9);
+  const fator = 1 - aliquota;
+  const comImposto = (v) => (fator > 0 ? v / fator : v);
+  const totalComImposto = comImposto(custoTotal);
+  const imposto = totalComImposto - custoTotal;
+
+  const precoCusto = comImposto(basicos / qtd);
+  const precoMinimo = comImposto((basicos + trabalho) / qtd);
+  const precoJusto = comImposto((subtotal + fundo) / qtd);
+  const precoSustentavel = comImposto(custoTotal / qtd);
 
   // Custos fixos (bloco "fixos": fixos rateados / equipamentos e manutenção).
   // Recomendação: não passar de 30% do preço final.
   const fixosTotal = porBloco.fixos || 0;
-  const fixosPct = custoTotal > 0 ? fixosTotal / custoTotal : 0;
+  const fixosPct = totalComImposto > 0 ? fixosTotal / totalComImposto : 0;
   const alertaFixos = fixosPct > 0.3;
 
   // Margem de contribuição sobre o preço de venda anunciado.
@@ -124,7 +146,8 @@ export function calcular(estado) {
   const pv = parseNum(estado.precoVenda);
   let margem = null;
   if (pv > 0) {
-    const mc = pv - custoVariavelUnit;
+    // O imposto também é variável: incide sobre cada venda.
+    const mc = pv - custoVariavelUnit - pv * aliquota;
     const mcPct = mc / pv;
     const unidadesParaFixos = mc > 0 && fixosTotal > 0 ? Math.ceil(fixosTotal / mc) : null;
     let leitura;
@@ -174,6 +197,9 @@ export function calcular(estado) {
     fundo,
     reinvest,
     custoTotal,
+    aliquota,
+    imposto,
+    totalComImposto,
     quantidade: qtd,
     precoCusto,
     precoMinimo,

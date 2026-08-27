@@ -99,6 +99,61 @@ function aprox(a, b, msg) {
   assert.equal(r3.alertaFixos, true, 'alerta de custo fixo dispara');
 }
 
+// --- Imposto sobre a venda (ISS) entra "por dentro" do preço ---
+{
+  const e = estadoInicial('servico');
+  e.item.nome = 'Guiamento comunitário (1 dia)';
+  e.custos.trabalho = [{ desc: 'guias', pessoas: '2', tempo: '1', unidadeTempo: 'diaria', valorUnit: '60' }];
+  e.custos.logistica = [{ desc: 'combustível', valor: '70' }];
+  e.custos.alimentacao = [{ desc: 'alimentação', valor: '30' }];
+  e.custos.materiais = [{ desc: 'materiais', valor: '20' }];
+  e.custos.fixos = [{ desc: 'manutenção de equipamento', valor: '10' }];
+  e.fundoPct = '10';
+  e.reinvestPct = '10';
+
+  // sem imposto: idêntico ao exemplo do documento (nenhuma regressão)
+  aprox(calcular(e).precoSustentavel, 300, 'sem imposto o preço não muda');
+
+  // ISS de 5%: preço = 300 / (1 − 0,05) = 315,79 — e não 315,00.
+  // Conferência: 5% de 315,79 = 15,79, sobrando exatamente os 300 de custo.
+  e.impostoPct = '5';
+  const r = calcular(e);
+  aprox(r.precoSustentavel, 315.7895, 'preço com ISS 5% por dentro');
+  aprox(r.imposto, 15.7895, 'valor do imposto');
+  aprox(r.totalComImposto - r.imposto, 300, 'depois do imposto sobram os custos');
+  aprox(r.precoSustentavel * r.aliquota, r.imposto, 'imposto confere sobre o preço de venda');
+
+  // o imposto também pesa na margem de contribuição
+  e.precoVenda = '315,79';
+  const rm = calcular(e);
+  aprox(rm.margem.mc, 315.79 - 240 - 315.79 * 0.05, 'margem desconta o imposto da venda');
+}
+
+// --- Serviço agora aceita quantidade (ex.: 3 diárias no mesmo orçamento) ---
+{
+  const e = estadoInicial('servico');
+  e.item.nome = 'Guiamento comunitário';
+  e.item.unidade = 'dia';
+  e.item.quantidadeVendavel = '3';
+  // custos das 3 diárias somados
+  e.custos.trabalho = [{ desc: 'guias', pessoas: '2', tempo: '3', unidadeTempo: 'diaria', valorUnit: '60' }];
+  e.custos.logistica = [{ desc: 'combustível', valor: '210' }];
+  e.custos.alimentacao = [{ desc: 'alimentação', valor: '90' }];
+  e.custos.materiais = [{ desc: 'materiais', valor: '60' }];
+  e.custos.fixos = [{ desc: 'manutenção', valor: '30' }];
+  e.fundoPct = '10';
+  e.reinvestPct = '10';
+
+  const r = calcular(e);
+  assert.equal(r.quantidade, 3, 'serviço respeita a quantidade informada');
+  aprox(r.custoTotal, 900, 'custo das 3 diárias');
+  aprox(r.precoSustentavel, 300, 'preço por diária continua R$ 300');
+
+  // vazio segue valendo 1 (comportamento antigo preservado)
+  e.item.quantidadeVendavel = '';
+  assert.equal(calcular(e).quantidade, 1, 'serviço sem quantidade = 1');
+}
+
 // --- parser de números pt-BR ---
 {
   const { parseNum } = await import('../src/calc.js');

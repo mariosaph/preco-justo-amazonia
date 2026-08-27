@@ -110,22 +110,29 @@ export default function Resultado({ estado, resultado, usuario, mudar, aoNovoCal
                 <tr key={b.id} className={b.id === 'fixos' && r.alertaFixos ? 'linha-alerta' : undefined}>
                   <td>{b.titulo}</td>
                   <td>{moeda(r.porBloco[b.id])}</td>
-                  <td>{r.custoTotal > 0 ? pct(r.porBloco[b.id] / r.custoTotal) : '—'}</td>
+                  <td>{r.totalComImposto > 0 ? pct(r.porBloco[b.id] / r.totalComImposto) : '—'}</td>
                 </tr>
               ) : null
             )}
             {r.perdas > 0 && (
-              <tr><td>Perdas</td><td>{moeda(r.perdas)}</td><td>{r.custoTotal > 0 ? pct(r.perdas / r.custoTotal) : '—'}</td></tr>
+              <tr><td>Perdas</td><td>{moeda(r.perdas)}</td><td>{r.totalComImposto > 0 ? pct(r.perdas / r.totalComImposto) : '—'}</td></tr>
             )}
-            <tr className="sub"><td>Subtotal</td><td>{moeda(r.subtotal)}</td><td>{r.custoTotal > 0 ? pct(r.subtotal / r.custoTotal) : '—'}</td></tr>
+            <tr className="sub"><td>Subtotal</td><td>{moeda(r.subtotal)}</td><td>{r.totalComImposto > 0 ? pct(r.subtotal / r.totalComImposto) : '—'}</td></tr>
             {r.fundo > 0 && (
-              <tr><td>Fundo comunitário</td><td>{moeda(r.fundo)}</td><td>{r.custoTotal > 0 ? pct(r.fundo / r.custoTotal) : '—'}</td></tr>
+              <tr><td>Fundo comunitário</td><td>{moeda(r.fundo)}</td><td>{r.totalComImposto > 0 ? pct(r.fundo / r.totalComImposto) : '—'}</td></tr>
             )}
             {r.reinvest > 0 && (
-              <tr><td>Margem de reinvestimento</td><td>{moeda(r.reinvest)}</td><td>{r.custoTotal > 0 ? pct(r.reinvest / r.custoTotal) : '—'}</td></tr>
+              <tr><td>Margem de reinvestimento</td><td>{moeda(r.reinvest)}</td><td>{r.totalComImposto > 0 ? pct(r.reinvest / r.totalComImposto) : '—'}</td></tr>
             )}
-            <tr className="total"><td>Custo total do lote</td><td>{moeda(r.custoTotal)}</td><td>100%</td></tr>
-            {estado.tipo === 'produto' && (
+            {r.imposto > 0 && (
+              <tr><td>Imposto sobre a venda ({pct(r.aliquota)})</td><td>{moeda(r.imposto)}</td><td>{r.totalComImposto > 0 ? pct(r.imposto / r.totalComImposto) : '—'}</td></tr>
+            )}
+            <tr className="total">
+              <td>{r.imposto > 0 ? 'Total do lote (com imposto)' : 'Custo total do lote'}</td>
+              <td>{moeda(r.totalComImposto)}</td>
+              <td>100%</td>
+            </tr>
+            {(estado.tipo === 'produto' || r.quantidade > 1) && (
               <tr><td>Quantidade vendável</td><td>{r.quantidade} {unidade}</td><td></td></tr>
             )}
           </tbody>
